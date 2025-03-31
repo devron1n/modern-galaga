@@ -23,48 +23,88 @@ class EnemyGroup {
     }
     
     createWave(difficulty = 1) {
-        // Очищаем предыдущую волну, если она существует
-        this.enemies.clear(true, true);
-        
-        // Увеличиваем счетчик волн
-        this.waveCount = Math.floor(difficulty);
-        
-        // Вычисляем начальные координаты формации
-        this.formationX = this.scene.cameras.main.width / 2 - (this.formationWidth * this.enemySpacingX) / 2;
-        this.formationY = 100;
-        
-        // Создаем новую формацию врагов
-        for (let y = 0; y < this.formationHeight; y++) {
-            for (let x = 0; x < this.formationWidth; x++) {
-                // Определяем тип врага в зависимости от ряда
-                let enemyType;
-                if (y === 0) {
-                    enemyType = 'enemy-3';
-                } else if (y === 1 || y === 2) {
-                    enemyType = 'enemy-2';
-                } else {
-                    enemyType = 'enemy-1';
-                }
-                
-                // Вычисляем позицию врага в формации
-                const posX = this.formationX + x * this.enemySpacingX;
-                const posY = this.formationY + y * this.enemySpacingY;
-                
-                // Создаем врага
-                const enemy = new Enemy(
-                    this.scene,
-                    posX,
-                    posY,
-                    enemyType
-                );
-                
-                // Добавляем врага в группу
-                this.enemies.add(enemy);
+        try {
+            // Очищаем предыдущую волну, если она существует
+            this.enemies.clear(true, true);
+            
+            // Увеличиваем счетчик волн
+            this.waveCount = Math.floor(difficulty);
+            
+            // Адаптируем размер формации для мобильных устройств
+            const isMobile = this.detectMobile();
+            
+            // Адаптируем количество врагов и их расположение под размер экрана
+            if (isMobile) {
+                // Меньше врагов для мобильных устройств
+                this.formationWidth = 6;
+                this.formationHeight = 4;
+                this.enemySpacingX = 60;
+                this.enemySpacingY = 60;
+            } else {
+                // Стандартная формация для десктопа
+                this.formationWidth = 10;
+                this.formationHeight = 5;
+                this.enemySpacingX = 50;
+                this.enemySpacingY = 50;
             }
+            
+            // Вычисляем начальные координаты формации
+            this.formationX = this.scene.cameras.main.width / 2 - (this.formationWidth * this.enemySpacingX) / 2;
+            this.formationY = 100;
+            
+            // Создаем новую формацию врагов
+            for (let y = 0; y < this.formationHeight; y++) {
+                for (let x = 0; x < this.formationWidth; x++) {
+                    // Определяем тип врага в зависимости от ряда
+                    let enemyType;
+                    if (y === 0) {
+                        enemyType = 'enemy-3';
+                    } else if (y === 1 || y === 2) {
+                        enemyType = 'enemy-2';
+                    } else {
+                        enemyType = 'enemy-1';
+                    }
+                    
+                    // Вычисляем позицию врага в формации
+                    const posX = this.formationX + x * this.enemySpacingX;
+                    const posY = this.formationY + y * this.enemySpacingY;
+                    
+                    // Создаем врага с учетом сложности (больше здоровья в новых волнах)
+                    const enemy = new Enemy(
+                        this.scene,
+                        posX,
+                        posY,
+                        enemyType
+                    );
+                    
+                    // Увеличиваем размер врагов на мобильных устройствах для лучшей видимости
+                    if (isMobile) {
+                        enemy.setScale(1.3);
+                    }
+                    
+                    // Добавляем врага в группу
+                    this.enemies.add(enemy);
+                }
+            }
+            
+            // Настраиваем скорость движения формации в зависимости от сложности
+            this.formationSpeed = 30 + (difficulty - 1) * 5;
+            
+            // Пониженная скорость для мобильных устройств
+            if (isMobile) {
+                this.formationSpeed *= 0.8;
+            }
+        } catch (error) {
+            console.error('Ошибка при создании волны врагов:', error);
         }
-        
-        // Настраиваем скорость движения формации в зависимости от сложности
-        this.formationSpeed = 30 + (difficulty - 1) * 5;
+    }
+    
+    detectMobile() {
+        // Определяем, является ли устройство мобильным
+        return (
+            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+            (window.innerWidth <= 800)
+        );
     }
     
     update(delta) {

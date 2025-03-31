@@ -80,90 +80,203 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
     
     updateAttack() {
-        // Логика атаки врага
-        // По умолчанию просто двигаемся к игроку
-        const player = this.scene.player;
-        
-        if (player && player.active) {
-            // Вычисляем направление к игроку
-            const angle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
+        try {
+            // Логика атаки врага
+            // По умолчанию просто двигаемся к игроку
+            const player = this.scene.player;
             
-            // Устанавливаем скорость в направлении игрока
-            this.body.setVelocity(
-                Math.cos(angle) * this.speed,
-                Math.sin(angle) * this.speed
-            );
+            if (player && player.active) {
+                // Вычисляем направление к игроку
+                const angle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
+                
+                // Устанавливаем скорость в направлении игрока
+                if (this.body) {
+                    this.body.setVelocity(
+                        Math.cos(angle) * this.speed,
+                        Math.sin(angle) * this.speed
+                    );
+                }
+                
+                // Поворачиваем спрайт в направлении движения
+                this.rotation = angle + Math.PI/2;
+            }
             
-            // Поворачиваем спрайт в направлении движения
-            this.rotation = angle + Math.PI/2;
-        }
-        
-        // Возвращаем врага в формацию, если он вышел за пределы экрана
-        if (this.y > this.scene.cameras.main.height + 50 ||
-            this.y < -50 ||
-            this.x > this.scene.cameras.main.width + 50 ||
-            this.x < -50) {
+            // Проверяем границы экрана для атакующих врагов
+            const screenHeight = this.scene.cameras.main.height;
+            const screenWidth = this.scene.cameras.main.width;
             
-            this.returnToFormation();
+            // Заменяем отражение на более правильное поведение - возврат в формацию
+            const bottomMargin = 80; // Увеличиваем отступ от нижнего края
+            
+            // Если враг находится слишком близко к нижней границе, возвращаем его в формацию
+            if (this.y > screenHeight - bottomMargin) {
+                // Вместо отражения просто возвращаем в формацию
+                this.returnToFormation();
+                return; // Выходим из метода
+            }
+            
+            // Возвращаем врага в формацию, если он вышел за боковые или верхнюю границы экрана
+            if (this.y < -50 || this.x > screenWidth + 50 || this.x < -50) {
+                this.returnToFormation();
+            }
+        } catch (error) {
+            console.error('Ошибка в методе updateAttack врага:', error);
+            
+            // При ошибке лучше вернуть врага в формацию
+            try {
+                this.returnToFormation();
+            } catch (e) {
+                // Если даже это не работает, хотя бы пытаемся остановить движение
+                if (this.body) {
+                    this.body.setVelocity(0, 0);
+                }
+            }
         }
     }
     
     startAttack() {
-        // Начинаем атаку
-        this.isAttacking = true;
-        this.isInFormation = false;
-        
-        // Останавливаем эффект парения
-        if (this.hoverTween) {
-            this.hoverTween.stop();
+        try {
+            // Проверка активности врага
+            if (!this.active) {
+                console.log('Попытка запустить атаку неактивного врага');
+                return;
+            }
+            
+            // Начинаем атаку
+            this.isAttacking = true;
+            this.isInFormation = false;
+            
+            // Останавливаем эффект парения
+            if (this.hoverTween && typeof this.hoverTween.stop === 'function') {
+                this.hoverTween.stop();
+            }
+            
+            // Проверка существования тела физики
+            if (!this.body) {
+                console.error('Физическое тело врага не существует');
+                return;
+            }
+            
+            // Включаем физику для движения
+            this.body.setEnable(true);
+            
+            // Модифицируем углы атаки, чтобы враги меньше стремились вниз экрана
+            // и больше атаковали в сторону игрока
+            let randomAngle;
+            
+            // Если игрок существует, с большей вероятностью атакуем в его сторону
+            if (this.scene.player && this.scene.player.active) {
+                const playerAngle = Phaser.Math.Angle.Between(
+                    this.x, this.y, 
+                    this.scene.player.x, this.scene.player.y
+                );
+                
+                // Слегка варьируем угол вокруг направления к игроку
+                randomAngle = playerAngle + Phaser.Math.FloatBetween(-0.3, 0.3);
+                
+                // Ограничиваем максимальное отклонение вниз
+                if (randomAngle > Math.PI/2 + 0.3) randomAngle = Math.PI/2 + 0.3;
+                if (randomAngle < Math.PI/2 - 0.3) randomAngle = Math.PI/2 - 0.3;
+            } else {
+                // Если игрок не доступен, используем более горизонтальное движение
+                randomAngle = Phaser.Math.FloatBetween(-0.6, 0.6) + Math.PI/2;
+            }
+            
+            // Устанавливаем начальную скорость с вариацией
+            const attackSpeed = this.speed * Phaser.Math.FloatBetween(0.9, 1.1);
+            
+            this.body.setVelocity(
+                Math.cos(randomAngle) * attackSpeed,
+                Math.sin(randomAngle) * attackSpeed
+            );
+            
+            // Поворачиваем спрайт в направлении движения
+            this.rotation = randomAngle + Math.PI/2;
+            
+            // Добавляем небольшое увеличение размера при атаке для визуального эффекта
+            this.setScale(1.1);
+        } catch (error) {
+            console.error('Ошибка при начале атаки врага:', error);
+            
+            // Если произошла ошибка, возвращаем врага в формацию
+            try {
+                this.returnToFormation();
+            } catch (e) {
+                console.error('Не удалось вернуть врага в формацию после ошибки:', e);
+            }
         }
-        
-        // Включаем физику для движения
-        this.body.setEnable(true);
-        
-        // Случайное направление атаки с уклоном вниз
-        const randomAngle = Phaser.Math.FloatBetween(-0.5, 0.5) + Math.PI/2;
-        
-        // Устанавливаем начальную скорость
-        this.body.setVelocity(
-            Math.cos(randomAngle) * this.speed,
-            Math.sin(randomAngle) * this.speed
-        );
-        
-        // Поворачиваем спрайт в направлении движения
-        this.rotation = randomAngle + Math.PI/2;
     }
     
     returnToFormation() {
-        // Прекращаем атаку и возвращаемся в формацию
-        this.isAttacking = false;
-        this.isInFormation = true;
-        
-        // Останавливаем движение
-        this.body.setEnable(false);
-        this.body.setVelocity(0, 0);
-        
-        // Сбрасываем вращение
-        this.rotation = 0;
-        
-        // Возобновляем эффект парения
-        this.hoverTween = this.scene.tweens.add({
-            targets: this,
-            y: this.formationY + 5,
-            duration: 1000,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-        });
-        
-        // Плавно перемещаемся в позицию формации
-        this.scene.tweens.add({
-            targets: this,
-            x: this.formationX,
-            y: this.formationY,
-            duration: 500,
-            ease: 'Sine.easeOut'
-        });
+        try {
+            // Прекращаем атаку и возвращаемся в формацию
+            this.isAttacking = false;
+            this.isInFormation = true;
+            
+            // Останавливаем движение
+            if (this.body) {
+                this.body.setEnable(false);
+                this.body.setVelocity(0, 0);
+            }
+            
+            // Сбрасываем вращение и другие свойства
+            this.rotation = 0;
+            this.setScale(1); // Сбрасываем масштаб, если он был изменен
+            
+            // Останавливаем предыдущий твин парения, если он существует
+            if (this.hoverTween && this.hoverTween.stop) {
+                this.hoverTween.stop();
+            }
+            
+            // Убедимся, что формация существует
+            if (typeof this.formationX === 'undefined' || typeof this.formationY === 'undefined') {
+                // Если позиция формации не определена, задаем ее в центре экрана
+                this.formationX = this.scene.cameras.main.width / 2;
+                this.formationY = 150;
+            }
+            
+            // Проверяем, что сцена существует перед созданием tweens
+            if (this.scene && this.scene.tweens) {
+                // Возобновляем эффект парения
+                this.hoverTween = this.scene.tweens.add({
+                    targets: this,
+                    y: this.formationY + 5,
+                    duration: 1000,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.easeInOut'
+                });
+                
+                // Плавно перемещаемся в позицию формации с более длительной анимацией
+                this.scene.tweens.add({
+                    targets: this,
+                    x: this.formationX,
+                    y: this.formationY,
+                    duration: 800,
+                    ease: 'Power2.easeOut'
+                });
+            } else {
+                // Если tweens недоступны, просто телепортируем в позицию формации
+                this.x = this.formationX;
+                this.y = this.formationY;
+            }
+        } catch (error) {
+            console.error('Ошибка в методе returnToFormation врага:', error);
+            
+            // При ошибке хотя бы пытаемся переместить врага в безопасную позицию
+            try {
+                this.x = this.scene.cameras.main.width / 2;
+                this.y = 150;
+                this.rotation = 0;
+                
+                if (this.body) {
+                    this.body.setVelocity(0, 0);
+                }
+            } catch (e) {
+                // Последняя попытка стабилизировать игру
+                console.error('Критическая ошибка при восстановлении врага:', e);
+            }
+        }
     }
     
     damage() {

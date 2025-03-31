@@ -2,7 +2,9 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Modern Galaga</title>
     <style>
         body {
@@ -32,8 +34,11 @@
     <!-- Подключение игровых сущностей -->
     <script src="js/entities/Player.js"></script>
     <script src="js/entities/Enemy.js"></script>
-    <script src="js/entities/EnemyGroup.js"></script>
     <script src="js/entities/Bullet.js"></script>
+    <script src="js/entities/EnemyGroup.js"></script>
+    
+    <!-- Подключение утилит -->
+    <script src="js/utils/MobileControls.js"></script>
     
     <!-- Подключение игровых сцен -->
     <script src="js/scenes/BootScene.js"></script>
